@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.26;
+
+contract Voting_System{
+    
+    struct Candidate {
+        string name;
+        uint256 voteCount;
+    }
+
+    address public owner;
+    bool public votingActive;
+    uint256 public startTime;
+    uint256 public endTime;
+
+    mapping(address => bool) public voters;
+    Candidate[] public candidates;
+
+    event VoteCast(address indexed voter, uint256 indexed candidateId);
+    event CandidateAdded(uint256 indexed candidateId, string name);
+    event CandidateRemoved(uint256 indexed candidateId, string name);
+
+    modifier Election_Commission() {
+        require(msg.sender == owner, "Only owner can call this function");
+        _;
+    }
+
+    modifier votingPeriodActive() {
+        require(votingActive, "Voting is not active");
+        require(block.timestamp >= startTime && block.timestamp <= endTime, "Voting period is not active");
+        _;
+    }
+
+    modifier validCandidate(uint256 candidateId) {
+        require(candidateId < candidates.length, "Invalid candidate");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function addCandidate(string memory name) public Election_Commission {
+        candidates.push(Candidate(name, 0));
+        emit CandidateAdded(candidates.length - 1, name);
+    }
+
+    function removeCandidate(uint256 candidateId) public Election_Commission validCandidate(candidateId) {
+        emit CandidateRemoved(candidateId, candidates[candidateId].name);
+        candidates[candidateId] = candidates[candidates.length - 1];
+        candidates.pop();
+    }
+
+    function startVoting(uint256 duration) public Election_Commission  {
+        require(!votingActive, "Voting is already active");
+        votingActive = true;
+        startTime = block.timestamp;
+        endTime = block.timestamp + duration;     // the value of the duration you have to enter is in seconds
+    }
+
+    function endVoting() public Election_Commission {
+        require(votingActive, "Voting is not active");
+        votingActive = false;
+    }
+
+    function vote(uint256 candidateId) public votingPeriodActive validCandidate(candidateId) {
+        require(!voters[msg.sender], "You have already voted");
+        voters[msg.sender] = true;
+        candidates[candidateId].voteCount +=1;
+        emit VoteCast(msg.sender, candidateId);
+    }
+
+    function announceWinner() public view returns (string memory winnerName, uint256 winnerVoteCount) {
+        require(!votingActive, "Voting is still active");
+        uint256 maxVotes = 0;
+        uint256 winnerIndex = 0;
+        for (uint256 i = 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > maxVotes) {
+                maxVotes = candidates[i].voteCount;
+                winnerIndex = i;
+            }
+        }
+        winnerName = candidates[winnerIndex].name;
+        winnerVoteCount = candidates[winnerIndex].voteCount;
+    }
+
+    function getCandidates() public view returns (Candidate[] memory) {
+        return candidates;
+    }
+
+    function Total_NO_of_Candidates() public view returns(uint){
+        return candidates.length;
+    }
+}
